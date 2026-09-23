@@ -1,0 +1,2 @@
+Archivo de la rama main.
+Práctica de GitHub avanzado de Sara Montesinos Villalba.
