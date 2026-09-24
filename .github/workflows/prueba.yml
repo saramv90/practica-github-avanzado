@@ -1,0 +1,31 @@
+name: Comprobar token DEV
+
+on: [push]
+
+permissions: {}
+
+jobs:
+  comprobar:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 5
+
+    steps:
+      - name: Comparar secreto con variable local
+        shell: powershell
+        env:
+          DEV_TOKEN: ${{ secrets.DEV_TOKEN }}
+        run: |
+          Write-Output "Runner: $env:RUNNER_NAME"
+
+          if ([string]::IsNullOrEmpty($env:DEV_TOKEN) -or
+              [string]::IsNullOrEmpty($env:LOCAL_DEV_TOKEN)) {
+            Write-Output "::error::Falta DEV_TOKEN o LOCAL_DEV_TOKEN."
+            exit 1
+          }
+
+          if ($env:DEV_TOKEN -ceq $env:LOCAL_DEV_TOKEN) {
+            Write-Output "CORRECTO: los valores coinciden."
+          } else {
+            Write-Output "::error::Los valores NO coinciden."
+            exit 1
+          }
