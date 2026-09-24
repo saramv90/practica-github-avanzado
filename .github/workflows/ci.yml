@@ -1,0 +1,69 @@
+name: CI develop
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  update-readme:
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Actualizar README y guardar
+        env:
+          RAMA: ${{ github.head_ref || github.ref_name }}
+        run: |
+          printf '\nAñadida feature: %s\n' "$RAMA" >> README.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add README.md
+          git commit -m "CI: registrar feature en README"
+          git push origin "HEAD:$RAMA"
+
+  validate-dev:
+    needs: update-readme
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 5
+    permissions: {}
+
+    steps:
+      - name: Validar token de desarrollo
+        shell: powershell
+        env:
+          DEV_TOKEN: ${{ secrets.DEV_TOKEN }}
+        run: |
+          Write-Output "Runner: $env:RUNNER_NAME"
+
+          if ([string]::IsNullOrEmpty($env:DEV_TOKEN) -or
+              [string]::IsNullOrEmpty($env:LOCAL_DEV_TOKEN)) {
+            Write-Output "::error::Falta DEV_TOKEN o LOCAL_DEV_TOKEN."
+            exit 1
+          }
+
+          if ($env:DEV_TOKEN -ceq $env:LOCAL_DEV_TOKEN) {
+            Write-Output "CORRECTO: los valores de desarrollo coinciden."
+          } else {
+            Write-Output "::error::Los valores de desarrollo NO coinciden."
+            exit 1
+          }
