@@ -17,3 +17,5 @@ Añadida feature: develop
 Añadida feature: develop
 
 AppVersion-1 - 2026-09-25 14:45:06 UTC
+
+AppVersion-2 - 2026-09-25 14:56:35 UTC
