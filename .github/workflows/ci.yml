@@ -39,10 +39,10 @@ jobs:
 
           git add README.md
           MENSAJE="CI: registrar feature en README"
-if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-  MENSAJE="$MENSAJE [skip ci]"
-fi
-git commit -m "$MENSAJE"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            MENSAJE="$MENSAJE [skip ci]"
+          fi
+          git commit -m "$MENSAJE"
           git push origin "HEAD:$RAMA"
 
   validate-dev:
@@ -65,6 +65,12 @@ git commit -m "$MENSAJE"
             exit 1
           }
 
+          if ($env:DEV_TOKEN -ceq $env:LOCAL_DEV_TOKEN) {
+            Write-Output "CORRECTO: los valores de desarrollo coinciden."
+          } else {
+            Write-Output "::error::Los valores de desarrollo NO coinciden."
+            exit 1
+          }
           if ($env:DEV_TOKEN -ceq $env:LOCAL_DEV_TOKEN) {
             Write-Output "CORRECTO: los valores de desarrollo coinciden."
           } else {
