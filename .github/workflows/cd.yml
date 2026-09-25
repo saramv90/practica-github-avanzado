@@ -1,0 +1,92 @@
+name: CD main
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cd-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  update-version:
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Incrementar la version del README
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime, timezone
+          import re
+
+          archivo = Path("README.md")
+          texto = archivo.read_text(encoding="utf-8")
+          versiones = re.findall(r"(?m)^AppVersion-(\d+)\b", texto)
+
+          if not versiones:
+              raise SystemExit("Falta la linea inicial AppVersion-0")
+
+          nueva = max(int(v) for v in versiones) + 1
+          fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+          linea = f"AppVersion-{nueva} - {fecha}"
+
+          archivo.write_text(
+              texto.rstrip() + "\n\n" + linea + "\n",
+              encoding="utf-8"
+          )
+          print(f"Version registrada: {linea}")
+          PY
+
+      - name: Guardar el cambio en GitHub
+        env:
+          RAMA: ${{ github.head_ref || github.ref_name }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add README.md
+          git commit -m "CD: incrementar version [skip ci]"
+          git push origin "HEAD:$RAMA"
+
+  validate-prod:
+    needs: update-version
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 5
+    permissions: {}
+
+    steps:
+      - name: Validar token de produccion
+        shell: powershell
+        env:
+          PROD_TOKEN: ${{ secrets.PROD_TOKEN }}
+        run: |
+          Write-Output "Runner: $env:RUNNER_NAME"
+
+          if ([string]::IsNullOrEmpty($env:PROD_TOKEN) -or
+              [string]::IsNullOrEmpty($env:LOCAL_PROD_TOKEN)) {
+            Write-Output "::error::Falta PROD_TOKEN o LOCAL_PROD_TOKEN."
+            exit 1
+          }
+
+          if ($env:PROD_TOKEN -ceq $env:LOCAL_PROD_TOKEN) {
+            Write-Output "CORRECTO: los valores de produccion coinciden."
+          } else {
+            Write-Output "::error::Los valores de produccion NO coinciden."
+            exit 1
+          }
